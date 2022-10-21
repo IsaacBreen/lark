@@ -105,7 +105,7 @@ class Rule(Serialize):
         self._hash = hash((self.origin, tuple(self.expansion)))
 
     def __str__(self):
-        return '<%s : %s>' % (self.origin.name, ' '.join(x.name for x in self.expansion))
+        return f"<{self.origin.name} : {' '.join(x.name for x in self.expansion)}>"
 
     def __repr__(self):
         return 'Rule(%r, %r, %r, %r)' % (self.origin, self.expansion, self.alias, self.options)
@@ -114,9 +114,11 @@ class Rule(Serialize):
         return self._hash
 
     def __eq__(self, other):
-        if not isinstance(other, Rule):
-            return False
-        return self.origin == other.origin and self.expansion == other.expansion
+        return (
+            self.origin == other.origin and self.expansion == other.expansion
+            if isinstance(other, Rule)
+            else False
+        )
 
 
 ###}

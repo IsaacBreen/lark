@@ -38,19 +38,18 @@ def _read(fn, *args):
         return f.read()
 
 def _get_lib_path():
-    if os.name == 'nt':
-        if 'PyPy' in sys.version:
-            return os.path.join(sys.prefix, 'lib-python', sys.winver)
-        else:
-            return os.path.join(sys.prefix, 'Lib')
-    else:
+    if os.name != 'nt':
         return [x for x in sys.path if x.endswith('%s.%s' % sys.version_info[:2])][0]
+    if 'PyPy' in sys.version:
+        return os.path.join(sys.prefix, 'lib-python', sys.winver)
+    else:
+        return os.path.join(sys.prefix, 'Lib')
 
 def test_python_lib():
     path = _get_lib_path()
 
     start = time.time()
-    files = glob.glob(path+'/*.py')
+    files = glob.glob(f'{path}/*.py')
     total_kb = 0
     for f in files:
         r = _read(os.path.join(path, f))
@@ -65,7 +64,7 @@ def test_python_lib():
 def test_earley_equals_lalr():
     path = _get_lib_path()
 
-    files = glob.glob(path+'/*.py')
+    files = glob.glob(f'{path}/*.py')
     for f in files:
         print( f )
         tree1 = python_parser2.parse(_read(os.path.join(path, f)) + '\n')

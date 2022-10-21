@@ -51,10 +51,11 @@ class LALR_Parser(Serialize):
                 if not on_error(e):
                     raise e
 
-                if isinstance(e, UnexpectedCharacters):
-                    # If user didn't change the character position, then we should
-                    if p == s.line_ctr.char_pos:
-                        s.line_ctr.feed(s.text[p:p+1])
+                if (
+                    isinstance(e, UnexpectedCharacters)
+                    and p == s.line_ctr.char_pos
+                ):
+                    s.line_ctr.feed(s.text[p:p+1])
 
                 try:
                     return e.interactive_parser.resume_parse()
@@ -98,9 +99,12 @@ class ParserState:
 
     # Necessary for match_examples() to work
     def __eq__(self, other):
-        if not isinstance(other, ParserState):
-            return NotImplemented
-        return len(self.state_stack) == len(other.state_stack) and self.position == other.position
+        return (
+            len(self.state_stack) == len(other.state_stack)
+            and self.position == other.position
+            if isinstance(other, ParserState)
+            else NotImplemented
+        )
 
     def __copy__(self):
         return type(self)(
@@ -139,8 +143,7 @@ class ParserState:
             else:
                 # reduce+shift as many times as necessary
                 rule = arg
-                size = len(rule.expansion)
-                if size:
+                if size := len(rule.expansion):
                     s = value_stack[-size:]
                     del state_stack[-size:]
                     del value_stack[-size:]

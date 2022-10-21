@@ -219,7 +219,7 @@ def merge_transformers(base_transformer=None, **transformers_to_merge):
                 continue
             if method_name.startswith("_") or method_name == "transform":
                 continue
-            prefixed_method = prefix + "__" + method_name
+            prefixed_method = f"{prefix}__{method_name}"
             if hasattr(base_transformer, prefixed_method):
                 raise AttributeError("Cannot merge: method '%s' appears more than once" % prefixed_method)
 
@@ -296,8 +296,7 @@ class Transformer_NonRecursive(Transformer):
         stack: List = []
         for x in reversed(rev_postfix):
             if isinstance(x, Tree):
-                size = len(x.children)
-                if size:
+                if size := len(x.children):
                     args = stack[-size:]
                     del stack[-size:]
                 else:
@@ -533,10 +532,7 @@ def v_args(inline: bool = False, meta: bool = False, tree: bool = False, wrapper
 
     func = None
     if meta:
-        if inline:
-            func = _vargs_meta_inline
-        else:
-            func = _vargs_meta
+        func = _vargs_meta_inline if inline else _vargs_meta
     elif inline:
         func = _vargs_inline
     elif tree:
@@ -549,6 +545,7 @@ def v_args(inline: bool = False, meta: bool = False, tree: bool = False, wrapper
 
     def _visitor_args_dec(obj):
         return _apply_v_args(obj, func)
+
     return _visitor_args_dec
 
 

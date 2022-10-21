@@ -56,15 +56,11 @@ class TemplateConf:
         return Template(template, conf=self)
 
     def _match_tree_template(self, template: TreeOrCode, tree: TreeOrCode) -> Optional[Dict[str, TreeOrCode]]:
-        template_var = self.test_var(template)
-        if template_var:
+        if template_var := self.test_var(template):
             return {template_var: tree}
 
         if isinstance(template, str):
-            if template == tree:
-                return {}
-            return None
-
+            return {} if template == tree else None
         assert isinstance(template, Tree) and isinstance(tree, Tree), f"template={template} tree={tree}"
 
         if template.data == tree.data and len(template.children) == len(tree.children):
@@ -74,7 +70,7 @@ class TemplateConf:
                 if matches is None:
                     return None
 
-                res.update(matches)
+                res |= matches
 
             return res
 
@@ -90,8 +86,7 @@ class _ReplaceVars(Transformer[str, Tree[str]]):
     def __default__(self, data, children, meta) -> Tree[str]:
         tree = super().__default__(data, children, meta)
 
-        var = self._conf.test_var(tree)
-        if var:
+        if var := self._conf.test_var(tree):
             try:
                 return self._vars[var]
             except KeyError:
@@ -132,8 +127,7 @@ class Template:
         """
         tree = self.conf._get_tree(tree)
         for subtree in tree.iter_subtrees():
-            res = self.match(subtree)
-            if res:
+            if res := self.match(subtree):
                 yield subtree, res
 
     def apply_vars(self, vars: Mapping[str, Tree[str]]) -> Tree[str]:

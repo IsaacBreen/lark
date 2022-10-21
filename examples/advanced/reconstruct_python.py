@@ -45,15 +45,13 @@ def postproc(items):
                 actions.clear()
                 yield stack[-1]
                 last_was_whitespace = True
-            if not last_was_whitespace:
-                if item[0] in SPACE_BEFORE:
-                    yield ' '
+            if not last_was_whitespace and item[0] in SPACE_BEFORE:
+                yield ' '
             yield item
             last_was_whitespace = item[-1].isspace()
-            if not last_was_whitespace:
-                if item[-1] in SPACE_AFTER:
-                    yield ' '
-                    last_was_whitespace = True
+            if not last_was_whitespace and item[-1] in SPACE_AFTER:
+                yield ' '
+                last_was_whitespace = True
     yield "\n"
 
 

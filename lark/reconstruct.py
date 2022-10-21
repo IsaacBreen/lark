@@ -43,7 +43,7 @@ class WriteTokensTransformer(Transformer_InPlace):
                 except KeyError:
                     t = self.tokens[sym.name]
                     if not isinstance(t.pattern, PatternStr):
-                        raise NotImplementedError("Reconstructing regexps not supported yet: %s" % t)
+                        raise NotImplementedError(f"Reconstructing regexps not supported yet: {t}")
 
                     v = t.pattern.value
                 to_write.append(v)

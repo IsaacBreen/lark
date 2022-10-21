@@ -243,7 +243,7 @@ class TestGrammar(TestCase):
         g = u"""!start: "A"~15..100
             """
         l = Lark(g, parser='lalr')
-        for i in range(0, 110):
+        for i in range(110):
             if 15 <= i <= 100:
                 self.assertEqual(l.parse(u'A' * i), Tree('start', ['A']*i))
             else:
@@ -259,7 +259,7 @@ class TestGrammar(TestCase):
 
     def test_large_terminal(self):
         g = "start: NUMBERS\n"
-        g += "NUMBERS: " + '|'.join('"%s"' % i for i in range(0, 1000))
+        g += "NUMBERS: " + '|'.join('"%s"' % i for i in range(1000))
 
         l = Lark(g, parser='lalr')
         for i in (0, 9, 99, 999):

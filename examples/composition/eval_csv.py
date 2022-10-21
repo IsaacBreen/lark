@@ -13,12 +13,8 @@ class CsvTreeToPandasDict(Transformer):
         return children
 
     def start(self, children):
-        data = {}
-
         header = children[0].children
-        for heading in header:
-            data[heading] = []
-
+        data = {heading: [] for heading in header}
         for row in children[1:]:
             for i, element in enumerate(row):
                 data[header[i]].append(element)

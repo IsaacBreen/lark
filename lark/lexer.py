@@ -57,7 +57,7 @@ class Pattern(Serialize, ABC):
 
     def _get_flags(self, value):
         for f in self.flags:
-            value = ('(?%s:%s)' % (f, value))
+            value = f'(?{f}:{value})'
         return value
 
 
@@ -208,10 +208,12 @@ class LineCounter:
         self.line_start_pos = 0
 
     def __eq__(self, other):
-        if not isinstance(other, LineCounter):
-            return NotImplemented
-
-        return self.char_pos == other.char_pos and self.newline_char == other.newline_char
+        return (
+            self.char_pos == other.char_pos
+            and self.newline_char == other.newline_char
+            if isinstance(other, LineCounter)
+            else NotImplemented
+        )
 
     def feed(self, token: Token, test_newline=True):
         """Consume a token and calculate the new line & column.
@@ -219,8 +221,7 @@ class LineCounter:
         As an optional optimization, set test_newline=False if token doesn't contain a newline.
         """
         if test_newline:
-            newlines = token.count(self.newline_char)
-            if newlines:
+            if newlines := token.count(self.newline_char):
                 self.line += newlines
                 self.line_start_pos = self.char_pos + token.rindex(self.newline_char) + 1
 
@@ -233,8 +234,7 @@ class UnlessCallback:
         self.scanner = scanner
 
     def __call__(self, t):
-        res = self.scanner.match(t.value, 0)
-        if res:
+        if res := self.scanner.match(t.value, 0):
             _value, t.type = res
         return t
 
@@ -251,8 +251,7 @@ class CallChain:
 
 
 def _get_match(re_, regexp, s, flags):
-    m = re_.match(regexp, s, flags)
-    if m:
+    if m := re_.match(regexp, s, flags):
         return m.group(0)
 
 def _create_unless(terminals, g_regex_flags, re_, use_bytes):
@@ -296,7 +295,11 @@ class Scanner:
         postfix = '$' if self.match_whole else ''
         mres = []
         while terminals:
-            pattern = u'|'.join(u'(?P<%s>%s)' % (t.name, t.pattern.to_regexp() + postfix) for t in terminals[:max_size])
+            pattern = u'|'.join(
+                f'(?P<{t.name}>{t.pattern.to_regexp() + postfix})'
+                for t in terminals[:max_size]
+            )
+
             if self.use_bytes:
                 pattern = pattern.encode('latin-1')
             try:
@@ -310,8 +313,7 @@ class Scanner:
 
     def match(self, text, pos):
         for mre, type_from_index in self._mres:
-            m = mre.match(text, pos)
-            if m:
+            if m := mre.match(text, pos):
                 return m.group(0), type_from_index[m.lastindex]
 
 
@@ -339,10 +341,13 @@ class LexerState:
         self.last_token = last_token
 
     def __eq__(self, other):
-        if not isinstance(other, LexerState):
-            return NotImplemented
-
-        return self.text is other.text and self.line_ctr == other.line_ctr and self.last_token == other.last_token
+        return (
+            self.text is other.text
+            and self.line_ctr == other.line_ctr
+            and self.last_token == other.last_token
+            if isinstance(other, LexerState)
+            else NotImplemented
+        )
 
     def __copy__(self):
         return type(self)(self.text, copy(self.line_ctr), self.last_token)
@@ -407,13 +412,19 @@ class BasicLexer(Lexer):
                 try:
                     self.re.compile(t.pattern.to_regexp(), conf.g_regex_flags)
                 except self.re.error:
-                    raise LexError("Cannot compile token %s: %s" % (t.name, t.pattern))
+                    raise LexError(f"Cannot compile token {t.name}: {t.pattern}")
 
                 if t.pattern.min_width == 0:
-                    raise LexError("Lexer does not allow zero-width terminals. (%s: %s)" % (t.name, t.pattern))
+                    raise LexError(
+                        f"Lexer does not allow zero-width terminals. ({t.name}: {t.pattern})"
+                    )
+
 
             if not (set(conf.ignore) <= {t.name for t in terminals}):
-                raise LexError("Ignore terminals are not defined: %s" % (set(conf.ignore) - {t.name for t in terminals}))
+                raise LexError(
+                    f"Ignore terminals are not defined: {set(conf.ignore) - {t.name for t in terminals}}"
+                )
+
 
         # Init
         self.newline_types = frozenset(t.name for t in terminals if _regexp_has_newline(t.pattern.to_regexp()))

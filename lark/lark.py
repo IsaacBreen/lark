@@ -200,7 +200,7 @@ class LarkOptions(Serialize):
                              'Please use your transformer on the resulting parse tree, or use a different algorithm (i.e. LALR)')
 
         if o:
-            raise ConfigurationError("Unknown options: %s" % o.keys())
+            raise ConfigurationError(f"Unknown options: {o.keys()}")
 
     def __getattr__(self, name):
         try:

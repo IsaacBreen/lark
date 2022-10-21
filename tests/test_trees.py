@@ -181,6 +181,7 @@ class TestTrees(TestCase):
         self.assertEqual(x, 'hello')
 
     def test_smart_decorator(self):
+
         class OtherClass:
             @staticmethod
             def ab_staticmethod(a, b):
@@ -222,6 +223,8 @@ class TestTrees(TestCase):
             assert isinstance(self, TestCls)
             return a, b
 
+
+
         @v_args(inline=True)
         class TestCls(Transformer):
             @staticmethod
@@ -252,11 +255,12 @@ class TestTrees(TestCase):
             ot_ab_method = ot_instance.ab_method
 
             ab_partialmethod = partialmethod(ab_for_partialmethod, 1)
-            set_union = set(["a"]).union
+            set_union = {"a"}.union
             static_add = staticmethod(add)
             partial_reduce_mul = partial(reduce, mul)
 
             custom_callable = CustomCallable()
+
 
         test_instance = TestCls()
         expected = {
@@ -353,21 +357,28 @@ class TestTrees(TestCase):
         def test(prefix, s, postfix):
             return prefix + s.upper() + postfix
 
+
+
         @v_args(inline=True)
         class T(Transformer):
             a = functools.partial(test, "@", postfix="!")
-            b = functools.partial(lambda s: s + "!")
+            b = functools.partial(lambda s: f"{s}!")
+
 
         res = T().transform(tree)
         assert res.children == ["@TEST1!", "test2!"]
 
     def test_discard(self):
+
+
+
         class MyTransformer(Transformer):
             def a(self, args):
                 return 1 # some code here
 
-            def b(cls, args):
+            def b(self, args):
                 return Discard
+
 
         t = Tree('root', [
             Tree('b', []),

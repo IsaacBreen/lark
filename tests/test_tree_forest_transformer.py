@@ -167,11 +167,13 @@ class TestTreeForestTransformer(unittest.TestCase):
         visited_ambiguous = [False]
         visited_full = [False]
 
+
+
         class CustomTransformer(TreeForestTransformer):
             @handles_ambiguity
             def start(self, data):
                 for tree in data:
-                    assert tree.data == 'ambiguous' or tree.data == 'full'
+                    assert tree.data in ['ambiguous', 'full']
 
             def ambiguous(self, data):
                 visited_ambiguous[0] = True
@@ -186,6 +188,7 @@ class TestTreeForestTransformer(unittest.TestCase):
                 assert len(data) == 1
                 assert data[0].data == 'abcd'
                 return self.tree_class('full', data)
+
 
         grammar = """
         start: ab bc cd -> ambiguous

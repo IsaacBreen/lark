@@ -23,17 +23,11 @@ class TokenPrioritizer(ForestVisitor):
         return node.children
 
     def visit_symbol_node_out(self, node):
-        priority = 0
-        for child in node.children:
-            # Tokens do not have a priority attribute
-            # count them as -1
-            priority += getattr(child, 'priority', -1)
+        priority = sum(getattr(child, 'priority', -1) for child in node.children)
         node.priority = priority
 
     def visit_packed_node_out(self, node):
-        priority = 0
-        for child in node.children:
-            priority += getattr(child, 'priority', -1)
+        priority = sum(getattr(child, 'priority', -1) for child in node.children)
         node.priority = priority
 
     def on_cycle(self, node, path):

@@ -410,9 +410,11 @@ class SimplifyRule_Visitor(Visitor):
     def alias(self, tree):
         rule, alias_name = tree.children
         if rule.data == 'expansions':
-            aliases = []
-            for child in tree.children[0].children:
-                aliases.append(ST('alias', [child, alias_name]))
+            aliases = [
+                ST('alias', [child, alias_name])
+                for child in tree.children[0].children
+            ]
+
             tree.data = 'expansions'
             tree.children = aliases
 
@@ -450,7 +452,7 @@ class PrepareAnonTerminals(Transformer_InPlace):
     def pattern(self, p):
         value = p.value
         if p in self.term_reverse and p.flags != self.term_reverse[p].pattern.flags:
-            raise GrammarError(u'Conflicting flags for the same terminal: %s' % p)
+            raise GrammarError(f'Conflicting flags for the same terminal: {p}')
 
         term_name = None
 
@@ -584,7 +586,7 @@ def _literal_to_pattern(literal):
     s = eval_escaping(x)
 
     if s == "":
-        raise GrammarError("Empty terminals are not allowed (%s)" % literal)
+        raise GrammarError(f"Empty terminals are not allowed ({literal})")
 
     if literal.type == 'STRING':
         s = s.replace('\\\\', '\\')
@@ -605,7 +607,7 @@ class PrepareLiterals(Transformer_InPlace):
         start = start.value[1:-1]
         end = end.value[1:-1]
         assert len(eval_escaping(start)) == len(eval_escaping(end)) == 1
-        regexp = '[%s-%s]' % (start, end)
+        regexp = f'[{start}-{end}]'
         return ST('pattern', [PatternRE(regexp)])
 
 
@@ -633,7 +635,7 @@ class TerminalTreeToPattern(Transformer_NonRecursive):
         # (Python's re module otherwise prefers just 'l' when given (l|ll) and both could match)
         exps.sort(key=lambda x: (-x.max_width, -x.min_width, -len(x.value)))
 
-        pattern = '(?:%s)' % ('|'.join(i.to_regexp() for i in exps))
+        pattern = f"(?:{'|'.join(i.to_regexp() for i in exps)})"
         return _make_joined_pattern(pattern, {i.flags for i in exps})
 
     def expr(self, args):
@@ -648,7 +650,7 @@ class TerminalTreeToPattern(Transformer_NonRecursive):
                 op = "{%d,%d}" % (mn, mx)
         else:
             assert len(args) == 2
-        return PatternRE('(?:%s)%s' % (inner.to_regexp(), op), inner.flags)
+        return PatternRE(f'(?:{inner.to_regexp()}){op}', inner.flags)
 
     def maybe(self, expr):
         return self.expr(expr + ['?'])
@@ -700,7 +702,7 @@ class Grammar:
                 continue
             expansions = list(term_tree.find_data('expansion'))
             if len(expansions) == 1 and not expansions[0].children:
-                raise GrammarError("Terminals cannot be empty (%s)" % name)
+                raise GrammarError(f"Terminals cannot be empty ({name})")
 
         transformer = PrepareLiterals() * TerminalTreeToPattern()
         terminals = [TerminalDef(name, transformer.transform(term_tree), priority)
@@ -835,13 +837,15 @@ class FromPackageLoader:
     def __call__(self, base_path: Union[None, str, PackageResource], grammar_path: str) -> Tuple[PackageResource, str]:
         if base_path is None:
             to_try = self.search_paths
-        else:
-            # Check whether or not the importing grammar was loaded by this module.
-            if not isinstance(base_path, PackageResource) or base_path.pkg_name != self.pkg_name:
-                # Technically false, but FileNotFound doesn't exist in python2.7, and this message should never reach the end user anyway
-                raise IOError()
+        elif (
+            isinstance(base_path, PackageResource)
+            and base_path.pkg_name == self.pkg_name
+        ):
             to_try = [base_path.path]
 
+        else:
+            # Technically false, but FileNotFound doesn't exist in python2.7, and this message should never reach the end user anyway
+            raise IOError()
         err = None
         for path in to_try:
             full_path = os.path.join(path, grammar_path)
@@ -876,7 +880,7 @@ def resolve_term_references(term_dict):
                     try:
                         term_value = term_dict[item.name]
                     except KeyError:
-                        raise GrammarError("Terminal used but not defined: %s" % item.name)
+                        raise GrammarError(f"Terminal used but not defined: {item.name}")
                     assert term_value is not None
                     exp.children[0] = term_value
                     changed = True
@@ -950,11 +954,10 @@ GRAMMAR_ERRORS = [
     ]
 
 def _translate_parser_exception(parse, e):
-        error = e.match_examples(parse, GRAMMAR_ERRORS, use_accepts=True)
-        if error:
-            return error
-        elif 'STRING' in e.expected:
-            return "Expecting a value"
+    if error := e.match_examples(parse, GRAMMAR_ERRORS, use_accepts=True):
+        return error
+    elif 'STRING' in e.expected:
+        return "Expecting a value"
 
 def _parse_grammar(text, name, start='start'):
     try:
@@ -965,8 +968,7 @@ def _parse_grammar(text, name, start='start'):
                            (e.line, e.column, name, context))
     except UnexpectedToken as e:
         context = e.get_context(text)
-        error = _translate_parser_exception(_get_parser().parse, e)
-        if error:
+        if error := _translate_parser_exception(_get_parser().parse, e):
             raise GrammarError("%s, at line %s column %s\n\n%s" % (error, e.line, e.column, context))
         raise
 
@@ -974,14 +976,12 @@ def _parse_grammar(text, name, start='start'):
 
 
 def _error_repr(error):
-    if isinstance(error, UnexpectedToken):
-        error2 = _translate_parser_exception(_get_parser().parse, error)
-        if error2:
-            return error2
-        expected = ', '.join(error.accepts or error.expected)
-        return "Unexpected token %r. Expected one of: {%s}" % (str(error.token), expected)
-    else:
+    if not isinstance(error, UnexpectedToken):
         return str(error)
+    if error2 := _translate_parser_exception(_get_parser().parse, error):
+        return error2
+    expected = ', '.join(error.accepts or error.expected)
+    return "Unexpected token %r. Expected one of: {%s}" % (str(error.token), expected)
 
 def _search_interactive_parser(interactive_parser, predicate):
     def expand(node):
@@ -1026,13 +1026,11 @@ def _get_mangle(prefix, aliases, base_mangle=None):
         if s in aliases:
             s = aliases[s]
         else:
-            if s[0] == '_':
-                s = '_%s__%s' % (prefix, s[1:])
-            else:
-                s = '%s__%s' % (prefix, s)
+            s = f'_{prefix}__{s[1:]}' if s[0] == '_' else f'{prefix}__{s}'
         if base_mangle is not None:
             s = base_mangle(s)
         return s
+
     return mangle
 
 def _mangle_definition_tree(exp, mangle):
@@ -1096,9 +1094,9 @@ class GrammarBuilder:
         args = {}
         for i, name in enumerate(names, start=1):
             postfix = '' if i == 1 else str(i)
-            args['name' + postfix] = name
-            args['type' + postfix] = lowercase_type = ("rule", "terminal")[is_term]
-            args['Type' + postfix] = lowercase_type.title()
+            args[f'name{postfix}'] = name
+            args[f'type{postfix}'] = lowercase_type = ("rule", "terminal")[is_term]
+            args[f'Type{postfix}'] = lowercase_type.title()
         raise GrammarError(msg.format(**args))
 
     def _check_options(self, is_term, options):
@@ -1185,7 +1183,7 @@ class GrammarBuilder:
             dotted_path = tuple(path_node.children[:-1])
             if not dotted_path:
                 name ,= path_node.children
-                raise GrammarError("Nothing was imported from grammar `%s`" % name)
+                raise GrammarError(f"Nothing was imported from grammar `{name}`")
             name = path_node.children[-1]  # Get name from dotted path
             aliases = {name.value: (arg1 or name).value}  # Aliases if exist
 
@@ -1233,13 +1231,16 @@ class GrammarBuilder:
         tree = _parse_grammar(grammar_text, grammar_name)
 
         imports: Dict[Tuple[str, ...], Tuple[Optional[str], Dict[str, str]]] = {}
-          
+
         for stmt in tree.children:
             if stmt.data == 'import':
                 dotted_path, base_path, aliases = self._unpack_import(stmt, grammar_name)
                 try:
                     import_base_path, import_aliases = imports[dotted_path]
-                    assert base_path == import_base_path, 'Inconsistent base_path for %s.' % '.'.join(dotted_path)
+                    assert (
+                        base_path == import_base_path
+                    ), f"Inconsistent base_path for {'.'.join(dotted_path)}."
+
                     import_aliases.update(aliases)
                 except KeyError:
                     imports[dotted_path] = base_path, aliases
@@ -1264,14 +1265,9 @@ class GrammarBuilder:
                 for symbol in stmt.children:
                     assert isinstance(symbol, Symbol), symbol
                     is_term = isinstance(symbol, Terminal)
-                    if mangle is None:
-                        name = symbol.name
-                    else:
-                        name = mangle(symbol.name)
+                    name = symbol.name if mangle is None else mangle(symbol.name)
                     self._define(name, is_term, None)
-            elif stmt.data == 'import':
-                pass
-            else:
+            elif stmt.data != 'import':
                 assert False, stmt
 
 
@@ -1288,9 +1284,7 @@ class GrammarBuilder:
                 d = self._definitions[symbol]
             except KeyError:
                 return []
-            if d.is_term:
-                return []
-            return _find_used_symbols(d.tree) - set(d.params)
+            return [] if d.is_term else _find_used_symbols(d.tree) - set(d.params)
 
         _used = set(bfs(used, rule_dependencies))
         self._definitions = {k: v for k, v in self._definitions.items() if k in _used}
@@ -1339,9 +1333,12 @@ class GrammarBuilder:
 
             for i, p in enumerate(params):
                 if p in self._definitions:
-                    raise GrammarError("Template Parameter conflicts with rule %s (in template %s)" % (p, name))
+                    raise GrammarError(
+                        f"Template Parameter conflicts with rule {p} (in template {name})"
+                    )
+
                 if p in params[:i]:
-                    raise GrammarError("Duplicate Template Parameter %s (in template %s)" % (p, name))
+                    raise GrammarError(f"Duplicate Template Parameter {p} (in template {name})")
 
             if exp is None: # Remaining checks don't apply to abstract rules/terminals (created with %declare)
                 continue
@@ -1362,7 +1359,9 @@ class GrammarBuilder:
                     self._grammar_error(d.is_term, "{Type} '{name}' used but not defined (in {type2} {name2})", sym, name)
 
         if not set(self._definitions).issuperset(self._ignore_names):
-            raise GrammarError("Terminals %s were marked to ignore but were not defined!" % (set(self._ignore_names) - set(self._definitions)))
+            raise GrammarError(
+                f"Terminals {set(self._ignore_names) - set(self._definitions)} were marked to ignore but were not defined!"
+            )
 
     def build(self) -> Grammar:
         self.validate()

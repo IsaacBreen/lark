@@ -63,7 +63,7 @@ class TestParsers(unittest.TestCase):
                     name_list: NAME | name_list "," NAME
                     NAME: /\w/+ """)
         l2 = g.parse('(a,b,c,*x)')
-        assert l == l2, '%s != %s' % (l.pretty(), l2.pretty())
+        assert l == l2, f'{l.pretty()} != {l2.pretty()}'
 
     def test_infinite_recurse(self):
         g = """start: a
@@ -158,11 +158,16 @@ class TestParsers(unittest.TestCase):
         self.assertEqual( r.children[0].data, "a" )
 
     def test_visit_tokens(self):
+
+
+
         class T(Transformer):
             def a(self, children):
-                return children[0] + "!"
+                return f"{children[0]}!"
+
             def A(self, tok):
                 return tok.update(value=tok.upper())
+
 
         # Test regular
         g = """start: a
@@ -193,11 +198,11 @@ class TestParsers(unittest.TestCase):
             class T(base):
                 def add(self, children):
                     return sum(children if isinstance(children, list) else children.children)
-                
+
                 def NUM(self, token):
                     return int(token)
-                
-            
+
+
             parser = Lark(g, parser='lalr', transformer=T())
             result = parser.parse(text)
             self.assertEqual(result, expected)
@@ -393,6 +398,7 @@ class TestParsers(unittest.TestCase):
 def _make_full_earley_test(LEXER):
     def _Lark(grammar, **kwargs):
         return Lark(grammar, lexer=LEXER, parser='earley', propagate_positions=True, **kwargs)
+
     class _TestFullEarley(unittest.TestCase):
         def test_anon(self):
             # Fails an Earley implementation without special handling for empty rules,
@@ -914,7 +920,7 @@ def _make_full_earley_test(LEXER):
         #     assert x.data != '_ambig', x
         #     assert len(x.children) == 1
 
-    _NAME = "TestFullEarley" + LEXER.capitalize()
+    _NAME = f"TestFullEarley{LEXER.capitalize()}"
     _TestFullEarley.__name__ = _NAME
     globals()[_NAME] = _TestFullEarley
     __all__.append(_NAME)
@@ -2478,7 +2484,7 @@ def _make_parser_test(LEXER, PARSER):
                            NAME: /[\w]+/
                         """, regex=True)
             self.assertEqual(g.parse('வணக்கம்'), 'வணக்கம்')
-        
+
         @unittest.skipIf(not regex, "regex not installed")
         def test_regex_width_fallback(self):
             g = r"""
@@ -2488,7 +2494,7 @@ def _make_parser_test(LEXER, PARSER):
             self.assertRaises((GrammarError, LexError, re.error), _Lark, g)
             p = _Lark(g, regex=True)
             self.assertEqual(p.parse("123abc"), Tree('start', ['123', 'abc']))
-            
+
             g = r"""
                 start: NAME NAME?
                 NAME: /(?(?=\d)\d+|\w*)/
@@ -2503,7 +2509,7 @@ def _make_parser_test(LEXER, PARSER):
                 A: "a"
                 B: "b"
             ''')
-            
+
             ip = g.parse_interactive()
 
             self.assertRaises(UnexpectedToken, ip.feed_eof)
@@ -2526,7 +2532,7 @@ def _make_parser_test(LEXER, PARSER):
             res = ip.feed_eof(ip.lexer_thread.state.last_token)
             self.assertEqual(res, Tree('start', ['a', 'b']))
             self.assertRaises(UnexpectedToken ,ip.feed_eof)
-            
+
             self.assertRaises(UnexpectedToken, ip_copy.feed_token, Token('A', 'a'))
             ip_copy.feed_token(Token('B', 'b'))
             res = ip_copy.feed_eof()

@@ -56,7 +56,7 @@ class CalculateTree(Transformer):
         try:
             return self.vars[name]
         except KeyError:
-            raise Exception("Variable not found: %s" % name)
+            raise Exception(f"Variable not found: {name}")
 
 
 calc_parser = Lark(calc_grammar, parser='lalr', transformer=CalculateTree())
