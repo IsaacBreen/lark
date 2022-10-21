@@ -21,10 +21,7 @@ def unescape(val, maxLength = 0):
 			.replace("&quot;", "\"") \
 			.replace("&#39;", "'")
 
-	if maxLength > 0:
-		return val[0:maxLength]
-
-	return val
+	return val[:maxLength] if maxLength > 0 else val
 
 def doesEventHitWidgetOrParents(event, widget):
 	"""
@@ -45,11 +42,14 @@ def doesEventHitWidgetOrChildren(event, widget):
 	if event.target == widget.element:
 		return widget
 
-	for child in widget.children():
-		if doesEventHitWidgetOrChildren(event, child):
-			return child
-
-	return None
+	return next(
+		(
+			child
+			for child in widget.children()
+			if doesEventHitWidgetOrChildren(event, child)
+		),
+		None,
+	)
 
 def textToHtml(node, text):
 	"""
@@ -73,12 +73,8 @@ def parseInt(s, ret = 0):
 	if not isinstance(s, str):
 		return int(s)
 	elif s:
-		if s[0] in "+-":
-			ts = s[1:]
-		else:
-			ts = s
-
-		if ts and all([_ in "0123456789" for _ in ts]):
+		ts = s[1:] if s[0] in "+-" else s
+		if ts and all(_ in "0123456789" for _ in ts):
 			return int(s)
 
 	return ret
@@ -90,12 +86,8 @@ def parseFloat(s, ret = 0.0):
 	if not isinstance(s, str):
 		return float(s)
 	elif s:
-		if s[0] in "+-":
-			ts = s[1:]
-		else:
-			ts = s
-
-		if ts and ts.count(".") <= 1 and all([_ in ".0123456789" for _ in ts]):
+		ts = s[1:] if s[0] in "+-" else s
+		if ts and ts.count(".") <= 1 and all(_ in ".0123456789" for _ in ts):
 			return float(s)
 
 	return ret

@@ -15,13 +15,12 @@ def _wrap_lexer(lexer_class):
     future_interface = getattr(lexer_class, '__future_interface__', False)
     if future_interface:
         return lexer_class
-    else:
-        class CustomLexerWrapper(Lexer):
-            def __init__(self, lexer_conf):
-                self.lexer = lexer_class(lexer_conf)
-            def lex(self, lexer_state, parser_state):
-                return self.lexer.lex(lexer_state.text)
-        return CustomLexerWrapper
+    class CustomLexerWrapper(Lexer):
+        def __init__(self, lexer_conf):
+            self.lexer = lexer_class(lexer_conf)
+        def lex(self, lexer_state, parser_state):
+            return self.lexer.lex(lexer_state.text)
+    return CustomLexerWrapper
 
 
 def _deserialize_parsing_frontend(data, memo, lexer_conf, callbacks, options):
@@ -48,9 +47,10 @@ class ParsingFrontend(Serialize):
             self.parser = parser
         else:
             create_parser = _parser_creators.get(parser_conf.parser_type)
-            assert create_parser is not None, "{} is not supported in standalone mode".format(
-                    parser_conf.parser_type
-                )
+            assert (
+                create_parser is not None
+            ), f"{parser_conf.parser_type} is not supported in standalone mode"
+
             self.parser = create_parser(lexer_conf, parser_conf, options)
 
         # Set-up lexer
@@ -160,7 +160,7 @@ class EarleyRegexpMatcher:
             try:
                 width = get_regexp_width(regexp)[0]
             except ValueError:
-                raise GrammarError("Bad regexp in token %s: %s" % (t.name, regexp))
+                raise GrammarError(f"Bad regexp in token {t.name}: {regexp}")
             else:
                 if width == 0:
                     raise GrammarError("Dynamic Earley doesn't allow zero-width regexps", t)

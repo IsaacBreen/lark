@@ -36,29 +36,32 @@ def parse(json_text):
     try:
         j = json_parser.parse(json_text)
     except UnexpectedInput as u:
-        exc_class = u.match_examples(json_parser.parse, {
-            JsonMissingOpening: ['{"foo": ]}',
-                                 '{"foor": }}',
-                                 '{"foo": }'],
-            JsonMissingClosing: ['{"foo": [}',
-                                 '{',
-                                 '{"a": 1',
-                                 '[1'],
-            JsonMissingComma: ['[1 2]',
-                               '[false 1]',
-                               '["b" 1]',
-                               '{"a":true 1:4}',
-                               '{"a":1 1:4}',
-                               '{"a":"b" 1:4}'],
-            JsonTrailingComma: ['[,]',
-                                '[1,]',
-                                '[1,2,]',
-                                '{"foo":1,}',
-                                '{"foo":false,"bar":true,}']
-        }, use_accepts=True)
-        if not exc_class:
+        if exc_class := u.match_examples(
+            json_parser.parse,
+            {
+                JsonMissingOpening: ['{"foo": ]}', '{"foor": }}', '{"foo": }'],
+                JsonMissingClosing: ['{"foo": [}', '{', '{"a": 1', '[1'],
+                JsonMissingComma: [
+                    '[1 2]',
+                    '[false 1]',
+                    '["b" 1]',
+                    '{"a":true 1:4}',
+                    '{"a":1 1:4}',
+                    '{"a":"b" 1:4}',
+                ],
+                JsonTrailingComma: [
+                    '[,]',
+                    '[1,]',
+                    '[1,2,]',
+                    '{"foo":1,}',
+                    '{"foo":false,"bar":true,}',
+                ],
+            },
+            use_accepts=True,
+        ):
+            raise exc_class(u.get_context(json_text), u.line, u.column)
+        else:
             raise
-        raise exc_class(u.get_context(json_text), u.line, u.column)
 
 
 def test():

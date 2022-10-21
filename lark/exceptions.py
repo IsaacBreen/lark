@@ -121,17 +121,19 @@ class UnexpectedInput(LarkError):
                             and isinstance(ut, (UnexpectedToken, UnexpectedEOF))
                         ):
                             if ut.token == self.token:  # Try exact match first
-                                logger.debug("Exact Match at example [%s][%s]" % (i, j))
+                                logger.debug(f"Exact Match at example [{i}][{j}]")
                                 return label
 
-                            if token_type_match_fallback:
-                                # Fallback to token types match
-                                if (ut.token.type == self.token.type) and not candidate[-1]:
-                                    logger.debug("Token Type Fallback at example [%s][%s]" % (i, j))
-                                    candidate = label, True
+                            if (
+                                token_type_match_fallback
+                                and (ut.token.type == self.token.type)
+                                and not candidate[-1]
+                            ):
+                                logger.debug(f"Token Type Fallback at example [{i}][{j}]")
+                                candidate = label, True
 
                         if candidate[0] is None:
-                            logger.debug("Same State match at example [%s][%s]" % (i, j))
+                            logger.debug(f"Same State match at example [{i}][{j}]")
                             candidate = label, False
 
         return candidate[0]
@@ -229,7 +231,7 @@ class UnexpectedToken(ParseError, UnexpectedInput):
 
     def __init__(self, token, expected, considered_rules=None, state=None, interactive_parser=None, terminals_by_name=None, token_history=None):
         super(UnexpectedToken, self).__init__()
-        
+
         # TODO considered_rules and expected can be figured out using state
         self.line = getattr(token, 'line', '?')
         self.column = getattr(token, 'column', '?')

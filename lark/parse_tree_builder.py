@@ -16,10 +16,7 @@ class ExpandSingleChild:
         self.node_builder = node_builder
 
     def __call__(self, children):
-        if len(children) == 1:
-            return children[0]
-        else:
-            return self.node_builder(children)
+        return children[0] if len(children) == 1 else self.node_builder(children)
 
 
 
@@ -167,7 +164,7 @@ def maybe_create_child_filter(expansion, keep_all_tokens, ambiguous, _empty_indi
     nones_to_add = 0
     for i, sym in enumerate(expansion):
         nones_to_add += empty_indices[i]
-        if keep_all_tokens or not (sym.is_term and sym.filter_out):
+        if keep_all_tokens or not sym.is_term or not sym.filter_out:
             to_include.append((i, _should_expand(sym), nones_to_add))
             nones_to_add = 0
 
@@ -215,9 +212,12 @@ class AmbiguousExpander:
 
 
 def maybe_create_ambiguous_expander(tree_class, expansion, keep_all_tokens):
-    to_expand = [i for i, sym in enumerate(expansion)
-                 if keep_all_tokens or ((not (sym.is_term and sym.filter_out)) and _should_expand(sym))]
-    if to_expand:
+    if to_expand := [
+        i
+        for i, sym in enumerate(expansion)
+        if keep_all_tokens
+        or ((not (sym.is_term and sym.filter_out)) and _should_expand(sym))
+    ]:
         return partial(AmbiguousExpander, to_expand, tree_class)
 
 
@@ -280,19 +280,20 @@ class AmbiguousIntermediateExpander:
 
             # Due to the structure of the SPPF,
             # an '_iambig' node can only appear as the first child
-            if children and _is_iambig_tree(children[0]):
-                iambig_node = children[0]
-                result = []
-                for grandchild in iambig_node.children:
-                    collapsed = _collapse_iambig(grandchild.children)
-                    if collapsed:
-                        for child in collapsed:
-                            child.children += children[1:]
-                        result += collapsed
-                    else:
-                        new_tree = self.tree_class('_inter', grandchild.children + children[1:])
-                        result.append(new_tree)
-                return result
+            if not children or not _is_iambig_tree(children[0]):
+                return
+            iambig_node = children[0]
+            result = []
+            for grandchild in iambig_node.children:
+                collapsed = _collapse_iambig(grandchild.children)
+                if collapsed:
+                    for child in collapsed:
+                        child.children += children[1:]
+                    result += collapsed
+                else:
+                    new_tree = self.tree_class('_inter', grandchild.children + children[1:])
+                    result.append(new_tree)
+            return result
 
         collapsed = _collapse_iambig(children)
         if collapsed:

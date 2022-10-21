@@ -50,10 +50,13 @@ def create_transformer(ast_module: types.ModuleType,
     t = transformer or Transformer()
 
     for name, obj in inspect.getmembers(ast_module):
-        if not name.startswith('_') and inspect.isclass(obj):
-            if issubclass(obj, Ast):
-                wrapper = decorator_factory(inline=not issubclass(obj, AsList), meta=issubclass(obj, WithMeta))
-                obj = wrapper(obj).__get__(t)
-                setattr(t, camel_to_snake(name), obj)
+        if (
+            not name.startswith('_')
+            and inspect.isclass(obj)
+            and issubclass(obj, Ast)
+        ):
+            wrapper = decorator_factory(inline=not issubclass(obj, AsList), meta=issubclass(obj, WithMeta))
+            obj = wrapper(obj).__get__(t)
+            setattr(t, camel_to_snake(name), obj)
 
     return t

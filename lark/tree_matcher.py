@@ -134,11 +134,10 @@ class TreeMatcher:
                 if sym.name not in seen:
                     yield make_recons_rule_to_term(sym, sym)
                     seen.add(sym.name)
+            elif sym.name.startswith('_') or sym in expand1s:
+                yield rule
             else:
-                if sym.name.startswith('_') or sym in expand1s:
-                    yield rule
-                else:
-                    self.rules_for_root[sym.name].append(rule)
+                self.rules_for_root[sym.name].append(rule)
 
         for origin, rule_aliases in aliases.items():
             for alias in rule_aliases:

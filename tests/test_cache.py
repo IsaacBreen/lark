@@ -62,7 +62,7 @@ class InlineTestT(Transformer):
 
 
 def append_zero(t):
-    return t.update(value=t.value + '0')
+    return t.update(value=f'{t.value}0')
 
 
 class TestCache(TestCase):

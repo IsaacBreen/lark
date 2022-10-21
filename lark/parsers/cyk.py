@@ -29,14 +29,14 @@ class Rule:
     def __init__(self, lhs, rhs, weight, alias):
         super(Rule, self).__init__()
         assert isinstance(lhs, NT), lhs
-        assert all(isinstance(x, NT) or isinstance(x, T) for x in rhs), rhs
+        assert all(isinstance(x, (NT, T)) for x in rhs), rhs
         self.lhs = lhs
         self.rhs = rhs
         self.weight = weight
         self.alias = alias
 
     def __str__(self):
-        return '%s -> %s' % (str(self.lhs), ' '.join(str(x) for x in self.rhs))
+        return f"{str(self.lhs)} -> {' '.join(str(x) for x in self.rhs)}"
 
     def __repr__(self):
         return str(self)
@@ -77,7 +77,7 @@ class RuleNode:
         self.weight = weight
 
     def __repr__(self):
-        return 'RuleNode(%s, [%s])' % (repr(self.rule.lhs), ', '.join(str(x) for x in self.children))
+        return f"RuleNode({repr(self.rule.lhs)}, [{', '.join(str(x) for x in self.children)}])"
 
 
 
@@ -95,9 +95,11 @@ class Parser:
         assert isinstance(lark_rule.origin, NT)
         assert all(isinstance(x, Symbol) for x in lark_rule.expansion)
         return Rule(
-            lark_rule.origin, lark_rule.expansion,
-            weight=lark_rule.options.priority if lark_rule.options.priority else 0,
-            alias=lark_rule)
+            lark_rule.origin,
+            lark_rule.expansion,
+            weight=lark_rule.options.priority or 0,
+            alias=lark_rule,
+        )
 
     def parse(self, tokenized, start):  # pylint: disable=invalid-name
         """Parses input, which is a list of tokens."""
@@ -243,10 +245,14 @@ def build_unit_skiprule(unit_rule, target_rule):
 
 def get_any_nt_unit_rule(g):
     """Returns a non-terminal unit rule from 'g', or None if there is none."""
-    for rule in g.rules:
-        if len(rule.rhs) == 1 and isinstance(rule.rhs[0], NT):
-            return rule
-    return None
+    return next(
+        (
+            rule
+            for rule in g.rules
+            if len(rule.rhs) == 1 and isinstance(rule.rhs[0], NT)
+        ),
+        None,
+    )
 
 
 def _remove_unit_rule(g, rule):
@@ -259,8 +265,8 @@ def _remove_unit_rule(g, rule):
 
 def _split(rule):
     """Splits a rule whose len(rhs) > 2 into shorter rules."""
-    rule_str = str(rule.lhs) + '__' + '_'.join(str(x) for x in rule.rhs)
-    rule_name = '__SP_%s' % (rule_str) + '_%d'
+    rule_str = f'{str(rule.lhs)}__' + '_'.join(str(x) for x in rule.rhs)
+    rule_name = f'__SP_{rule_str}_%d'
     yield Rule(rule.lhs, [rule.rhs[0], NT(rule_name % 1)], weight=rule.weight, alias=rule.alias)
     for i in xrange(1, len(rule.rhs) - 2):
         yield Rule(NT(rule_name % i), [rule.rhs[i], NT(rule_name % (i + 1))], weight=0, alias='Split')
@@ -270,7 +276,11 @@ def _split(rule):
 def _term(g):
     """Applies the TERM rule on 'g' (see top comment)."""
     all_t = {x for rule in g.rules for x in rule.rhs if isinstance(x, T)}
-    t_rules = {t: Rule(NT('__T_%s' % str(t)), [t], weight=0, alias='Term') for t in all_t}
+    t_rules = {
+        t: Rule(NT(f'__T_{str(t)}'), [t], weight=0, alias='Term')
+        for t in all_t
+    }
+
     new_rules = []
     for rule in g.rules:
         if len(rule.rhs) > 1 and any(isinstance(x, T) for x in rule.rhs):
@@ -295,10 +305,8 @@ def _bin(g):
 
 def _unit(g):
     """Applies the UNIT rule to 'g' (see top comment)."""
-    nt_unit_rule = get_any_nt_unit_rule(g)
-    while nt_unit_rule:
+    while nt_unit_rule := get_any_nt_unit_rule(g):
         g = _remove_unit_rule(g, nt_unit_rule)
-        nt_unit_rule = get_any_nt_unit_rule(g)
     return g
 
 
@@ -311,35 +319,38 @@ def to_cnf(g):
 def unroll_unit_skiprule(lhs, orig_rhs, skipped_rules, children, weight, alias):
     if not skipped_rules:
         return RuleNode(Rule(lhs, orig_rhs, weight=weight, alias=alias), children, weight=weight)
-    else:
-        weight = weight - skipped_rules[0].weight
-        return RuleNode(
-            Rule(lhs, [skipped_rules[0].lhs], weight=weight, alias=alias), [
-                unroll_unit_skiprule(skipped_rules[0].lhs, orig_rhs,
-                                skipped_rules[1:], children,
-                                skipped_rules[0].weight, skipped_rules[0].alias)
-            ], weight=weight)
+    weight = weight - skipped_rules[0].weight
+    return RuleNode(
+        Rule(lhs, [skipped_rules[0].lhs], weight=weight, alias=alias), [
+            unroll_unit_skiprule(skipped_rules[0].lhs, orig_rhs,
+                            skipped_rules[1:], children,
+                            skipped_rules[0].weight, skipped_rules[0].alias)
+        ], weight=weight)
 
 
 def revert_cnf(node):
     """Reverts a parse tree (RuleNode) to its original non-CNF form (Node)."""
     if isinstance(node, T):
         return node
-    # Reverts TERM rule.
     if node.rule.lhs.name.startswith('__T_'):
         return node.children[0]
-    else:
-        children = []
-        for child in map(revert_cnf, node.children):
-            # Reverts BIN rule.
-            if isinstance(child, RuleNode) and child.rule.lhs.name.startswith('__SP_'):
-                children += child.children
-            else:
-                children.append(child)
-        # Reverts UNIT rule.
-        if isinstance(node.rule, UnitSkipRule):
-            return unroll_unit_skiprule(node.rule.lhs, node.rule.rhs,
-                                    node.rule.skipped_rules, children,
-                                    node.rule.weight, node.rule.alias)
+    children = []
+    for child in map(revert_cnf, node.children):
+        # Reverts BIN rule.
+        if isinstance(child, RuleNode) and child.rule.lhs.name.startswith('__SP_'):
+            children += child.children
         else:
-            return RuleNode(node.rule, children)
+            children.append(child)
+        # Reverts UNIT rule.
+    return (
+        unroll_unit_skiprule(
+            node.rule.lhs,
+            node.rule.rhs,
+            node.rule.skipped_rules,
+            children,
+            node.rule.weight,
+            node.rule.alias,
+        )
+        if isinstance(node.rule, UnitSkipRule)
+        else RuleNode(node.rule, children)
+    )

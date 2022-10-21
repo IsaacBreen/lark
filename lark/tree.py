@@ -68,14 +68,21 @@ class Tree(Generic[_Leaf_T]):
 
     def _pretty(self, level, indent_str):
         if len(self.children) == 1 and not isinstance(self.children[0], Tree):
-            return [indent_str*level, self._pretty_label(), '\t', '%s' % (self.children[0],), '\n']
+            return [
+                indent_str * level,
+                self._pretty_label(),
+                '\t',
+                f'{self.children[0]}',
+                '\n',
+            ]
+
 
         l = [indent_str*level, self._pretty_label(), '\n']
         for n in self.children:
             if isinstance(n, Tree):
                 l += n._pretty(level+1, indent_str)
             else:
-                l += [indent_str*(level+1), '%s' % (n,), '\n']
+                l += [indent_str*(level+1), f'{n}', '\n']
 
         return l
 
@@ -173,11 +180,9 @@ class Tree(Generic[_Leaf_T]):
         """
         for c in self.children:
             if isinstance(c, Tree):
-                for t in c.scan_values(pred):
-                    yield t
-            else:
-                if pred(c):
-                    yield c
+                yield from c.scan_values(pred)
+            elif pred(c):
+                yield c
 
     def iter_subtrees_topdown(self):
         """Breadth-first iteration.
@@ -190,8 +195,7 @@ class Tree(Generic[_Leaf_T]):
             if not isinstance(node, Tree):
                 continue
             yield node
-            for child in reversed(node.children):
-                stack.append(child)
+            stack.extend(iter(reversed(node.children)))
 
     def __deepcopy__(self, memo):
         return type(self)(self.data, deepcopy(self.children, memo), meta=self._meta)

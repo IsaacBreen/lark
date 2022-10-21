@@ -72,10 +72,12 @@ class InteractiveParser:
         return copy(self)
 
     def __eq__(self, other):
-        if not isinstance(other, InteractiveParser):
-            return False
-
-        return self.parser_state == other.parser_state and self.lexer_thread == other.lexer_thread
+        return (
+            self.parser_state == other.parser_state
+            and self.lexer_thread == other.lexer_thread
+            if isinstance(other, InteractiveParser)
+            else False
+        )
 
     def as_immutable(self):
         """Convert to an ``ImmutableInteractiveParser``."""
@@ -85,9 +87,8 @@ class InteractiveParser:
     def pretty(self):
         """Print the output of ``choices()`` in a way that's easier to read."""
         out = ["Parser choices:"]
-        for k, v in self.choices().items():
-            out.append('\t- %s -> %r' % (k, v))
-        out.append('stack size: %s' % len(self.parser_state.state_stack))
+        out.extend('\t- %s -> %r' % (k, v) for k, v in self.choices().items())
+        out.append(f'stack size: {len(self.parser_state.state_stack)}')
         return '\n'.join(out)
 
     def choices(self):

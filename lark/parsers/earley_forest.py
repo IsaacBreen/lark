@@ -92,9 +92,17 @@ class SymbolNode(ForestNode):
         return iter(self._children)
 
     def __eq__(self, other):
-        if not isinstance(other, SymbolNode):
-            return False
-        return self is other or (type(self.s) == type(other.s) and self.s == other.s and self.start == other.start and self.end is other.end)
+        return (
+            self is other
+            or (
+                type(self.s) == type(other.s)
+                and self.s == other.s
+                and self.start == other.start
+                and self.end is other.end
+            )
+            if isinstance(other, SymbolNode)
+            else False
+        )
 
     def __hash__(self):
         return self._hash
@@ -105,10 +113,10 @@ class SymbolNode(ForestNode):
             ptr = self.s[1]
             before = ( expansion.name for expansion in rule.expansion[:ptr] )
             after = ( expansion.name for expansion in rule.expansion[ptr:] )
-            symbol = "{} ::= {}* {}".format(rule.origin.name, ' '.join(before), ' '.join(after))
+            symbol = f"{rule.origin.name} ::= {' '.join(before)}* {' '.join(after)}"
         else:
             symbol = self.s.name
-        return "({}, {}, {}, {})".format(symbol, self.start, self.end, self.priority)
+        return f"({symbol}, {self.start}, {self.end}, {self.priority})"
 
 class PackedNode(ForestNode):
     """
@@ -156,9 +164,12 @@ class PackedNode(ForestNode):
         yield self.right
 
     def __eq__(self, other):
-        if not isinstance(other, PackedNode):
-            return False
-        return self is other or (self.left == other.left and self.right == other.right)
+        return (
+            self is other
+            or (self.left == other.left and self.right == other.right)
+            if isinstance(other, PackedNode)
+            else False
+        )
 
     def __hash__(self):
         return self._hash
@@ -169,10 +180,10 @@ class PackedNode(ForestNode):
             ptr = self.s[1]
             before = ( expansion.name for expansion in rule.expansion[:ptr] )
             after = ( expansion.name for expansion in rule.expansion[ptr:] )
-            symbol = "{} ::= {}* {}".format(rule.origin.name, ' '.join(before), ' '.join(after))
+            symbol = f"{rule.origin.name} ::= {' '.join(before)}* {' '.join(after)}"
         else:
             symbol = self.s.name
-        return "({}, {}, {}, {})".format(symbol, self.start, self.priority, self.rule.order)
+        return f"({symbol}, {self.start}, {self.priority}, {self.rule.order})"
 
 class TokenNode(ForestNode):
     """
@@ -194,9 +205,11 @@ class TokenNode(ForestNode):
         self._hash = hash(token)
 
     def __eq__(self, other):
-        if not isinstance(other, TokenNode):
-            return False
-        return self is other or (self.token == other.token)
+        return (
+            self is other or (self.token == other.token)
+            if isinstance(other, TokenNode)
+            else False
+        )
 
     def __hash__(self):
         return self._hash
@@ -384,7 +397,7 @@ class ForestTransformer(ForestVisitor):
     def __init__(self):
         super(ForestTransformer, self).__init__()
         # results of transformations
-        self.data = dict()
+        self.data = {}
         # used to track parent nodes
         self.node_stack = deque()
 
@@ -541,11 +554,13 @@ class ForestToParseTree(ForestTransformer):
 
     def _check_cycle(self, node):
         if self._on_cycle_retreat:
-            if id(node) == id(self._cycle_node) or id(node) in self._successful_visits:
-                self._cycle_node = None
-                self._on_cycle_retreat = False
-            else:
+            if (
+                id(node) != id(self._cycle_node)
+                and id(node) not in self._successful_visits
+            ):
                 return Discard
+            self._cycle_node = None
+            self._on_cycle_retreat = False
 
     def _collapse_ambig(self, children):
         new_children = []
@@ -625,9 +640,11 @@ class ForestToParseTree(ForestTransformer):
     def visit_packed_node_in(self, node):
         self._on_cycle_retreat = False
         to_visit = super(ForestToParseTree, self).visit_packed_node_in(node)
-        if not self.resolve_ambiguity or id(node.parent) not in self._successful_visits:
-            if not self._use_cache or id(node) not in self._cache:
-                return to_visit
+        if (
+            not self.resolve_ambiguity
+            or id(node.parent) not in self._successful_visits
+        ) and (not self._use_cache or id(node) not in self._cache):
+            return to_visit
 
     def visit_packed_node_out(self, node):
         super(ForestToParseTree, self).visit_packed_node_out(node)
@@ -676,7 +693,9 @@ class TreeForestTransformer(ForestToParseTree):
     """
 
     def __init__(self, tree_class=Tree, prioritizer=ForestSumVisitor(), resolve_ambiguity=True, use_cache=False):
-        super(TreeForestTransformer, self).__init__(tree_class, dict(), prioritizer, resolve_ambiguity, use_cache)
+        super(TreeForestTransformer, self).__init__(
+            tree_class, {}, prioritizer, resolve_ambiguity, use_cache
+        )
 
     def __default__(self, name, data):
         """Default operation on tree (for override).
@@ -746,7 +765,7 @@ class ForestToPyDotVisitor(ForestVisitor):
             logger.error("Could not write png: ", e)
 
     def visit_token_node(self, node):
-        graph_node_id = str(id(node))
+        graph_node_id = id(node)
         graph_node_label = "\"{}\"".format(node.value.replace('"', '\\"'))
         graph_node_color = 0x808080
         graph_node_style = "\"filled,rounded\""
@@ -755,7 +774,7 @@ class ForestToPyDotVisitor(ForestVisitor):
         self.graph.add_node(graph_node)
 
     def visit_packed_node_in(self, node):
-        graph_node_id = str(id(node))
+        graph_node_id = id(node)
         graph_node_label = repr(node)
         graph_node_color = 0x808080
         graph_node_style = "filled"
@@ -766,11 +785,11 @@ class ForestToPyDotVisitor(ForestVisitor):
         yield node.right
 
     def visit_packed_node_out(self, node):
-        graph_node_id = str(id(node))
+        graph_node_id = id(node)
         graph_node = self.graph.get_node(graph_node_id)[0]
         for child in [node.left, node.right]:
             if child is not None:
-                child_graph_node_id = str(id(child))
+                child_graph_node_id = id(child)
                 child_graph_node = self.graph.get_node(child_graph_node_id)[0]
                 self.graph.add_edge(self.pydot.Edge(graph_node, child_graph_node))
             else:
@@ -783,22 +802,19 @@ class ForestToPyDotVisitor(ForestVisitor):
                 self.graph.add_edge(self.pydot.Edge(graph_node, child_graph_node, style=child_edge_style))
 
     def visit_symbol_node_in(self, node):
-        graph_node_id = str(id(node))
+        graph_node_id = id(node)
         graph_node_label = repr(node)
         graph_node_color = 0x808080
         graph_node_style = "\"filled\""
-        if node.is_intermediate:
-            graph_node_shape = "ellipse"
-        else:
-            graph_node_shape = "rectangle"
+        graph_node_shape = "ellipse" if node.is_intermediate else "rectangle"
         graph_node = self.pydot.Node(graph_node_id, style=graph_node_style, fillcolor="#{:06x}".format(graph_node_color), shape=graph_node_shape, label=graph_node_label)
         self.graph.add_node(graph_node)
         return iter(node.children)
 
     def visit_symbol_node_out(self, node):
-        graph_node_id = str(id(node))
+        graph_node_id = id(node)
         graph_node = self.graph.get_node(graph_node_id)[0]
         for child in node.children:
-            child_graph_node_id = str(id(child))
+            child_graph_node_id = id(child)
             child_graph_node = self.graph.get_node(child_graph_node_id)[0]
             self.graph.add_edge(self.pydot.Edge(graph_node, child_graph_node))

@@ -17,7 +17,7 @@ class RulePtr:
     def __repr__(self):
         before = [x.name for x in self.rule.expansion[:self.index]]
         after = [x.name for x in self.rule.expansion[self.index:]]
-        return '<%s : %s * %s>' % (self.rule.origin.name, ' '.join(before), ' '.join(after))
+        return f"<{self.rule.origin.name} : {' '.join(before)} * {' '.join(after)}>"
 
     @property
     def next(self):
@@ -91,17 +91,17 @@ def calculate_sets(rules):
         changed = False
 
         for rule in rules:
-            if set(rule.expansion) <= NULLABLE:
-                if update_set(NULLABLE, {rule.origin}):
-                    changed = True
+            if set(rule.expansion) <= NULLABLE and update_set(
+                NULLABLE, {rule.origin}
+            ):
+                changed = True
 
             for i, sym in enumerate(rule.expansion):
-                if set(rule.expansion[:i]) <= NULLABLE:
-                    if update_set(FIRST[rule.origin], FIRST[sym]):
-                        changed = True
-                else:
+                if set(rule.expansion[:i]) > NULLABLE:
                     break
 
+                if update_set(FIRST[rule.origin], FIRST[sym]):
+                    changed = True
     # Calculate FOLLOW
     changed = True
     while changed:
@@ -109,14 +109,19 @@ def calculate_sets(rules):
 
         for rule in rules:
             for i, sym in enumerate(rule.expansion):
-                if i==len(rule.expansion)-1 or set(rule.expansion[i+1:]) <= NULLABLE:
-                    if update_set(FOLLOW[sym], FOLLOW[rule.origin]):
-                        changed = True
+                if (
+                    i == len(rule.expansion) - 1
+                    or set(rule.expansion[i + 1 :]) <= NULLABLE
+                ) and update_set(FOLLOW[sym], FOLLOW[rule.origin]):
+                    changed = True
 
                 for j in range(i+1, len(rule.expansion)):
-                    if set(rule.expansion[i+1:j]) <= NULLABLE:
-                        if update_set(FOLLOW[sym], FIRST[rule.expansion[j]]):
-                            changed = True
+                    if set(
+                        rule.expansion[i + 1 : j]
+                    ) <= NULLABLE and update_set(
+                        FOLLOW[sym], FIRST[rule.expansion[j]]
+                    ):
+                        changed = True
 
     return FIRST, FOLLOW, NULLABLE
 
@@ -125,20 +130,29 @@ class GrammarAnalyzer:
     def __init__(self, parser_conf, debug=False):
         self.debug = debug
 
-        root_rules = {start: Rule(NonTerminal('$root_' + start), [NonTerminal(start), Terminal('$END')])
-                      for start in parser_conf.start}
+        root_rules = {
+            start: Rule(
+                NonTerminal(f'$root_{start}'),
+                [NonTerminal(start), Terminal('$END')],
+            )
+            for start in parser_conf.start
+        }
+
 
         rules = parser_conf.rules + list(root_rules.values())
         self.rules_by_origin = classify(rules, lambda r: r.origin)
 
         if len(rules) != len(set(rules)):
             duplicates = [item for item, count in Counter(rules).items() if count > 1]
-            raise GrammarError("Rules defined twice: %s" % ', '.join(str(i) for i in duplicates))
+            raise GrammarError(
+                f"Rules defined twice: {', '.join(str(i) for i in duplicates)}"
+            )
+
 
         for r in rules:
             for sym in r.expansion:
                 if not (sym.is_term or sym in self.rules_by_origin):
-                    raise GrammarError("Using an undefined rule: %s" % sym)
+                    raise GrammarError(f"Using an undefined rule: {sym}")
 
         self.start_states = {start: self.expand_rule(root_rule.origin)
                              for start, root_rule in root_rules.items()}
@@ -146,8 +160,11 @@ class GrammarAnalyzer:
         self.end_states = {start: fzset({RulePtr(root_rule, len(root_rule.expansion))})
                            for start, root_rule in root_rules.items()}
 
-        lr0_root_rules = {start: Rule(NonTerminal('$root_' + start), [NonTerminal(start)])
-                for start in parser_conf.start}
+        lr0_root_rules = {
+            start: Rule(NonTerminal(f'$root_{start}'), [NonTerminal(start)])
+            for start in parser_conf.start
+        }
+
 
         lr0_rules = parser_conf.rules + list(lr0_root_rules.values())
         assert(len(lr0_rules) == len(set(lr0_rules)))

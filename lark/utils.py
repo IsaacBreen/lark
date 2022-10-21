@@ -123,24 +123,23 @@ def get_regexp_width(expr):
         # a simple letter, which makes no difference as we are only trying to get the possible lengths of the regex
         # match here below.
         regexp_final = re.sub(categ_pattern, 'A', expr)
+    elif re.search(categ_pattern, expr):
+        raise ImportError('`regex` module must be installed in order to use Unicode categories.', expr)
     else:
-        if re.search(categ_pattern, expr):
-            raise ImportError('`regex` module must be installed in order to use Unicode categories.', expr)
         regexp_final = expr
     try:
         return [int(x) for x in sre_parse.parse(regexp_final).getwidth()]
     except sre_constants.error:
         if not regex:
             raise ValueError(expr)
-        else:
-            # sre_parse does not support the new features in regex. To not completely fail in that case,
-            # we manually test for the most important info (whether the empty string is matched)
-            c = regex.compile(regexp_final)
-            if c.match('') is None:
-                # MAXREPEAT is a none pickable subclass of int, therefore needs to be converted to enable caching
-                return 1, int(sre_constants.MAXREPEAT)
-            else:
-                return 0, int(sre_constants.MAXREPEAT)
+        # sre_parse does not support the new features in regex. To not completely fail in that case,
+        # we manually test for the most important info (whether the empty string is matched)
+        c = regex.compile(regexp_final)
+        return (
+            (1, int(sre_constants.MAXREPEAT))
+            if c.match('') is None
+            else (0, int(sre_constants.MAXREPEAT))
+        )
 
 ###}
 
@@ -211,7 +210,7 @@ def combine_alternatives(lists):
     """
     if not lists:
         return [[]]
-    assert all(l for l in lists), lists
+    assert all(lists), lists
     init = [[x] for x in lists[0]]
     return reduce(lambda a,b: [i+[j] for i in a for j in b], lists[1:], init)
 
@@ -319,4 +318,4 @@ def small_factors(n, max_factor):
         r, b = divmod(n, a)
         if a + b <= max_factor:
             return small_factors(r, max_factor) + [(a, b)]
-    assert False, "Failed to factorize %s" % n
+    assert False, f"Failed to factorize {n}"

@@ -48,7 +48,7 @@ def run_instruction(t):
 
     elif t.data == 'repeat':
         count, block = t.children
-        for i in range(int(count)):
+        for _ in range(int(count)):
             run_instruction(block)
 
     elif t.data == 'fill':
@@ -60,7 +60,7 @@ def run_instruction(t):
         for cmd in t.children:
             run_instruction(cmd)
     else:
-        raise SyntaxError('Unknown instruction: %s' % t.data)
+        raise SyntaxError(f'Unknown instruction: {t.data}')
 
 
 def run_turtle(program):

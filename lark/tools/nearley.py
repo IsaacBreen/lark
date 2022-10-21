@@ -79,14 +79,14 @@ class NearleyToLark(Transformer):
         return _get_rulename(name)
 
     def ruledef(self, name, exps):
-        return '!%s: %s' % (_get_rulename(name), exps)
+        return f'!{_get_rulename(name)}: {exps}'
 
     def expr(self, item, op):
-        rule = '(%s)%s' % (item, op)
+        rule = f'({item}){op}'
         return self._extra_rule(rule)
 
     def regexp(self, r):
-        return '/%s/' % r
+        return f'/{r}/'
 
     def null(self):
         return ''
@@ -99,7 +99,7 @@ class NearleyToLark(Transformer):
         if js.children:
             js_code ,= js.children
             js_code = js_code[2:-2]
-            alias = '-> ' + self._new_function(js_code)
+            alias = f'-> {self._new_function(js_code)}'
         else:
             alias = ''
         return ' '.join(x) + alias
@@ -136,7 +136,7 @@ def _nearley_to_lark(g, builtin_path, n2l, js_code, folder_path, includes):
         elif statement.data == 'ruledef':
             rule_defs.append(n2l.transform(statement))
         else:
-            raise Exception("Unknown statement: %s" % statement)
+            raise Exception(f"Unknown statement: {statement}")
 
     return rule_defs
 
@@ -158,11 +158,11 @@ def create_code_for_nearley_grammar(g, start, builtin_path, folder_path, es6=Fal
 
     emit('from lark import Lark, Transformer')
     emit()
-    emit('grammar = ' + repr(lark_g))
+    emit(f'grammar = {repr(lark_g)}')
     emit()
 
     for alias, code in n2l.alias_js_code.items():
-        js_code.append('%s = (%s);' % (alias, code))
+        js_code.append(f'{alias} = ({code});')
 
     if es6:
         emit(js2py.translate_js6('\n'.join(js_code)))

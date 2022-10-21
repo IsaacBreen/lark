@@ -96,8 +96,7 @@ class LexerJson(QsciLexerCustom):
 
         try:
             for token in self.lark.lex(text):
-                ws_len = token.start_pos - last_pos
-                if ws_len:
+                if ws_len := token.start_pos - last_pos:
                     self.setStyling(ws_len, 0)    # whitespace
 
                 token_len = len(bytearray(token, "utf-8"))

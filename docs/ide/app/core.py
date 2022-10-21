@@ -72,7 +72,7 @@ def domElementFromPoint(x, y):
 
 def domGetElementsByTagName(tag):
 	items = document.getElementsByTagName(tag)
-	return [items.item(i) for i in range(0, int(items.length))] #pyodide interprets items.length as float, so convert to int
+	return [items.item(i) for i in range(int(items.length))]
 
 
 ########################################################################################################################
@@ -178,18 +178,18 @@ class _WidgetDataWrapper(dict):
 
 	def __setitem__(self, key, value):
 		dict.__setitem__(self, key, value)
-		self.targetWidget.element.setAttribute(str("data-" + key), value)
+		self.targetWidget.element.setAttribute(str(f"data-{key}"), value)
 
 	def update(self, E=None, **F):
 		dict.update(self, E, **F)
 		if E is not None and "keys" in dir(E):
 			for key in E:
-				self.targetWidget.element.setAttribute(str("data-" + key), E["data-" + key])
+				self.targetWidget.element.setAttribute(str(f"data-{key}"), E[f"data-{key}"])
 		elif E:
 			for (key, val) in E:
-				self.targetWidget.element.setAttribute(str("data-" + key), "data-" + val)
+				self.targetWidget.element.setAttribute(str(f"data-{key}"), f"data-{val}")
 		for key in F:
-			self.targetWidget.element.setAttribute(str("data-" + key), F["data-" + key])
+			self.targetWidget.element.setAttribute(str(f"data-{key}"), F[f"data-{key}"])
 
 
 # _WidgetStyleWrapper --------------------------------------------------------------------------------------------------
@@ -209,8 +209,7 @@ class _WidgetStyleWrapper(dict):
 				if currChar.isupper():
 					realKey += "-"
 				realKey += currChar.lower()
-			val = style.getPropertyValue(realKey)
-			if val:
+			if val := style.getPropertyValue(realKey):
 				dict.__setitem__(self, realKey, val)
 
 	def __setitem__(self, key, value):
@@ -238,7 +237,7 @@ class Widget(object):
 	style = []
 
 	def __init__(self, *args, appendTo=None, style=None, **kwargs):
-		if "_wrapElem" in kwargs.keys():
+		if "_wrapElem" in kwargs:
 			self.element = kwargs["_wrapElem"]
 			del kwargs["_wrapElem"]
 		else:
@@ -274,7 +273,10 @@ class Widget(object):
 				continue
 
 			eventFn = getattr(self, event_attrName, None)
-			assert eventFn and callable(eventFn), "{} must provide a {} method".format(str(self), event_attrName)
+			assert eventFn and callable(
+				eventFn
+			), f"{str(self)} must provide a {event_attrName} method"
+
 
 			self._catchedEvents[event_attrName] = eventFn
 
@@ -331,15 +333,12 @@ class Widget(object):
 
 	def _getTargetfuncName(self, key, type):
 		assert type in ["get", "set"]
-		return "_{}{}{}".format(type, key[0].upper(), key[1:])
+		return f"_{type}{key[0].upper()}{key[1:]}"
 
 	def __getitem__(self, key):
 		funcName = self._getTargetfuncName(key, "get")
 
-		if funcName in dir(self):
-			return getattr(self, funcName)()
-
-		return None
+		return getattr(self, funcName)() if funcName in dir(self) else None
 
 	def __setitem__(self, key, value):
 		funcName = self._getTargetfuncName(key, "set")
@@ -347,7 +346,9 @@ class Widget(object):
 		if funcName in dir(self):
 			return getattr(self, funcName)(value)
 
-		raise ValueError("{} is no valid attribute for {}".format(key, (self._tagName or str(self))))
+		raise ValueError(
+			f"{key} is no valid attribute for {self._tagName or str(self)}"
+		)
 
 	def __str__(self):
 		return str(self.__class__.__name__)
@@ -368,7 +369,7 @@ class Widget(object):
 		Specifies whether an elements attribute values and contents of its children are to be translated when the page is localized, or whether to leave them unchanged.
 		:returns: True | False
 		"""
-		return True if self.element.translate == "yes" else False
+		return self.element.translate == "yes"
 
 	def _setTranslate(self, val):
 		"""
@@ -410,7 +411,7 @@ class Widget(object):
 		Specifies whether the element represents an element whose contents are subject to spell checking and grammar checking.
 		:returns: True | False
 		"""
-		return True if self.element.spellcheck == "true" else False
+		return self.element.spellcheck == "true"
 
 	def _setSpellcheck(self, val):
 		"""
@@ -438,7 +439,7 @@ class Widget(object):
 		Specifies that the element represents an element that is not yet, or is no longer, relevant.
 		:returns: True | False
 		"""
-		return True if self.element.hasAttribute("hidden") else False
+		return bool(self.element.hasAttribute("hidden"))
 
 	def _setHidden(self, val):
 		"""
@@ -469,8 +470,11 @@ class Widget(object):
 		Specifies whether the element is draggable.
 		:returns: True | False | "auto"
 		"""
-		return (self.element.draggable if str(self.element.draggable) == "auto" else (
-			True if str(self.element.draggable).lower() == "true" else False))
+		return (
+			self.element.draggable
+			if str(self.element.draggable) == "auto"
+			else str(self.element.draggable).lower() == "true"
+		)
 
 	def _setDraggable(self, val):
 		"""
@@ -681,7 +685,7 @@ class Widget(object):
 		if not child:
 			return self.appendChild(insert)
 
-		assert child in self._children, "{} is not a child of {}".format(child, self)
+		assert child in self._children, f"{child} is not a child of {self}"
 
 		toInsert = self.__collectChildren(insert, **kwargs)
 
@@ -738,7 +742,7 @@ class Widget(object):
 		return toAppend
 
 	def removeChild(self, child):
-		assert child in self._children, "{} is not a child of {}".format(child, self)
+		assert child in self._children, f"{child} is not a child of {self}"
 
 		if child._isAttached:
 			child.onDetach()
@@ -806,7 +810,7 @@ class Widget(object):
 		:type className: str
 		"""
 
-		if isinstance(className, str) or isinstance(className, unicode):
+		if isinstance(className, (str, unicode)):
 			return className in self["class"]
 		else:
 			raise TypeError()
@@ -1055,7 +1059,7 @@ class Widget(object):
 
 		# use of vars is deprecated!
 		if isinstance(vars, dict):
-			kwargs.update(vars)
+			kwargs |= vars
 
 		return fromHTML(html, appendTo=appendTo, bindTo=bindTo, **kwargs)
 
@@ -1122,7 +1126,7 @@ class _attrAlt(object):
 
 class _attrAutofocus(object):
 	def _getAutofocus(self):
-		return True if self.element.hasAttribute("autofocus") else False
+		return bool(self.element.hasAttribute("autofocus"))
 
 	def _setAutofocus(self, val):
 		if val:
@@ -1169,7 +1173,7 @@ class _attrValue(object):
 
 class _attrAutocomplete(object):
 	def _getAutocomplete(self):
-		return True if self.element.autocomplete == "on" else False
+		return self.element.autocomplete == "on"
 
 	def _setAutocomplete(self, val):
 		self.element.autocomplete = "on" if val == True else "off"
@@ -1177,7 +1181,7 @@ class _attrAutocomplete(object):
 
 class _attrRequired(object):
 	def _getRequired(self):
-		return True if self.element.hasAttribute("required") else False
+		return bool(self.element.hasAttribute("required"))
 
 	def _setRequired(self, val):
 		if val:
@@ -1188,7 +1192,7 @@ class _attrRequired(object):
 
 class _attrMultiple(object):
 	def _getMultiple(self):
-		return True if self.element.hasAttribute("multiple") else False
+		return bool(self.element.hasAttribute("multiple"))
 
 	def _setMultiple(self, val):
 		if val:
@@ -1227,7 +1231,7 @@ class _attrInputs(_attrRequired):
 		self.element.placeholder = val
 
 	def _getReadonly(self):
-		return True if self.element.hasAttribute("readonly") else False
+		return bool(self.element.hasAttribute("readonly"))
 
 	def _setReadonly(self, val):
 		if val:
@@ -1262,7 +1266,7 @@ class _attrFormhead(object):
 		self.element.formtarget = val
 
 	def _getFormnovalidate(self):
-		return True if self.element.hasAttribute("formnovalidate") else False
+		return bool(self.element.hasAttribute("formnovalidate"))
 
 	def _setFormnovalidate(self, val):
 		if val:
@@ -1345,7 +1349,7 @@ class _attrUsemap(object):
 
 class _attrMultimedia(object):
 	def _getAutoplay(self):
-		return True if self.element.hasAttribute("autoplay") else False
+		return bool(self.element.hasAttribute("autoplay"))
 
 	def _setAutoplay(self, val):
 		if val:
@@ -1354,7 +1358,7 @@ class _attrMultimedia(object):
 			self.element.removeAttribute("autoplay")
 
 	def _getPlaysinline(self):
-		return True if self.element.hasAttribute("playsinline") else False
+		return bool(self.element.hasAttribute("playsinline"))
 
 	def _setPlaysinline(self, val):
 		if val:
@@ -1363,7 +1367,7 @@ class _attrMultimedia(object):
 			self.element.removeAttribute("playsinline")
 
 	def _getControls(self):
-		return True if self.element.hasAttribute("controls") else False
+		return bool(self.element.hasAttribute("controls"))
 
 	def _setControls(self, val):
 		if val:
@@ -1372,7 +1376,7 @@ class _attrMultimedia(object):
 			self.element.removeAttribute("controls")
 
 	def _getLoop(self):
-		return True if self.element.hasAttribute("loop") else False
+		return bool(self.element.hasAttribute("loop"))
 
 	def _setLoop(self, val):
 		if val:
@@ -1381,7 +1385,7 @@ class _attrMultimedia(object):
 			self.element.removeAttribute("loop")
 
 	def _getMuted(self):
-		return True if self.element.hasAttribute("muted") else False
+		return bool(self.element.hasAttribute("muted"))
 
 	def _setMuted(self, val):
 		if val:
@@ -1678,7 +1682,7 @@ class Dialog(Widget):
 	_tagName = "dialog"
 
 	def _getOpen(self):
-		return True if self.element.hasAttribute("open") else False
+		return bool(self.element.hasAttribute("open"))
 
 	def _setOpen(self, val):
 		if val:
@@ -1886,7 +1890,7 @@ class Form(Widget, _attrDisabled, _attrName, _attrTarget, _attrAutocomplete):
 	_tagName = "form"
 
 	def _getNovalidate(self):
-		return True if self.element.hasAttribute("novalidate") else False
+		return bool(self.element.hasAttribute("novalidate"))
 
 	def _setNovalidate(self, val):
 		if val:
@@ -1972,7 +1976,7 @@ class Label(Widget, _attrForm, _attrFor):
 			if not forElem["id"]:
 				idx = Label.autoIdCounter
 				Label.autoIdCounter += 1
-				forElem["id"] = "label-autoid-for-{}".format(idx)
+				forElem["id"] = f"label-autoid-for-{idx}"
 
 			self["for"] = forElem["id"]
 
@@ -1985,13 +1989,10 @@ class Option(Widget, _attrDisabled, _attrLabel, _attrValue):
 	_tagName = "option"
 
 	def _getSelected(self):
-		return True if self.element.selected else False
+		return bool(self.element.selected)
 
 	def _setSelected(self, val):
-		if val:
-			self.element.selected = True
-		else:
-			self.element.selected = False
+		self.element.selected = bool(val)
 
 
 class Output(Widget, _attrForm, _attrName, _attrFor):
@@ -2067,7 +2068,7 @@ class Iframe(Widget, _attrSrc, _attrName, _attrDimensions):
 		self.element.src = val
 
 	def _getSeamless(self):
-		return True if self.element.hasAttribute("seamless") else False
+		return bool(self.element.hasAttribute("seamless"))
 
 	def _setSeamless(self, val):
 		if val:
@@ -2111,7 +2112,7 @@ class Keygen(Form, _attrAutofocus, _attrDisabled):
 	_tagName = "keygen"
 
 	def _getChallenge(self):
-		return True if self.element.hasAttribute("challenge") else False
+		return bool(self.element.hasAttribute("challenge"))
 
 	def _setChallenge(self, val):
 		if val:
@@ -2266,7 +2267,7 @@ class Script(Widget, _attrSrc, _attrCharset):
 	_tagName = "script"
 
 	def _getAsync(self):
-		return True if self.element.hasAttribute("async") else False
+		return bool(self.element.hasAttribute("async"))
 
 	def _setAsync(self, val):
 		if val:
@@ -2275,7 +2276,7 @@ class Script(Widget, _attrSrc, _attrCharset):
 			self.element.removeAttribute("async")
 
 	def _getDefer(self):
-		return True if self.element.hasAttribute("defer") else False
+		return bool(self.element.hasAttribute("defer"))
 
 	def _setDefer(self, val):
 		if val:
@@ -2302,7 +2303,7 @@ class Style(Widget, _attrMedia):
 	_tagName = "style"
 
 	def _getScoped(self):
-		return True if self.element.hasAttribute("scoped") else False
+		return bool(self.element.hasAttribute("scoped"))
 
 	def _setScoped(self, val):
 		if val:
@@ -2406,7 +2407,7 @@ class Tr(Widget):
 
 	def _getRowspan(self):
 		span = self.element.getAttribute("rowspan")
-		return span if span else 1
+		return span or 1
 
 	def _setRowspan(self, span):
 		assert span >= 1, "span may not be negative"
@@ -2419,7 +2420,7 @@ class Td(Widget):
 
 	def _getColspan(self):
 		span = self.element.getAttribute("colspan")
-		return span if span else 1
+		return span or 1
 
 	def _setColspan(self, span):
 		assert span >= 1, "span may not be negative"
@@ -2428,7 +2429,7 @@ class Td(Widget):
 
 	def _getRowspan(self):
 		span = self.element.getAttribute("rowspan")
-		return span if span else 1
+		return span or 1
 
 	def _setRowspan(self, span):
 		assert span >= 1, "span may not be negative"
@@ -2454,7 +2455,10 @@ class ColWrapper(object):
 		self.parentElem = parentElem
 
 	def __getitem__(self, item):
-		assert isinstance(item, int), "Invalid col-number. Expected int, got {}".format(str(type(item)))
+		assert isinstance(
+			item, int
+		), f"Invalid col-number. Expected int, got {str(type(item))}"
+
 		if item < 0 or item > len(self.parentElem._children):
 			return None
 
@@ -2466,12 +2470,12 @@ class ColWrapper(object):
 
 		col.removeAllChildren()
 
-		if isinstance(value, list) or isinstance(value, tuple):
+		if isinstance(value, (list, tuple)):
 			for el in value:
-				if isinstance(el, Widget) or isinstance(el, TextNode):
+				if isinstance(el, (Widget, TextNode)):
 					col.appendChild(value)
 
-		elif isinstance(value, Widget) or isinstance(value, TextNode):
+		elif isinstance(value, (Widget, TextNode)):
 			col.appendChild(value)
 
 
@@ -2481,7 +2485,10 @@ class RowWrapper(object):
 		self.parentElem = parentElem
 
 	def __getitem__(self, item):
-		assert isinstance(item, int), "Invalid row-number. Expected int, got {}".format(str(type(item)))
+		assert isinstance(
+			item, int
+		), f"Invalid row-number. Expected int, got {str(type(item))}"
+
 		if item < 0 or item > len(self.parentElem._children):
 			return None
 
@@ -2545,12 +2552,7 @@ class Table(Widget):
 		return RowWrapper(self.body)
 
 	def getRowCount(self):
-		cnt = 0
-
-		for tr in self.body._children:
-			cnt += tr["rowspan"]
-
-		return cnt
+		return sum(tr["rowspan"] for tr in self.body._children)
 
 
 # Time -----------------------------------------------------------------------------------------------------------------
@@ -2577,7 +2579,7 @@ class Track(Label, _attrSrc, _isVoid):
 		self.element.srclang = val
 
 	def _getDefault(self):
-		return True if self.element.hasAttribute("default") else False
+		return bool(self.element.hasAttribute("default"))
 
 	def _setDefault(self, val):
 		if val:
@@ -2622,10 +2624,7 @@ def unescape(val, maxLength=0):
 		.replace("&quot;", "\"") \
 		.replace("&#39;", "'")
 
-	if maxLength > 0:
-		return val[0:maxLength]
-
-	return val
+	return val[:maxLength] if maxLength > 0 else val
 
 
 def doesEventHitWidgetOrParents(event, widget):
@@ -2648,11 +2647,9 @@ def doesEventHitWidgetOrChildren(event, widget):
 	if event.target == widget.element:
 		return True
 
-	for child in widget._children:
-		if doesEventHitWidgetOrChildren(event, child):
-			return True
-
-	return False
+	return any(
+		doesEventHitWidgetOrChildren(event, child) for child in widget._children
+	)
 
 
 def textToHtml(node, text):
@@ -2678,12 +2675,8 @@ def parseInt(s, ret=0):
 	if not isinstance(s, str):
 		return int(s)
 	elif s:
-		if s[0] in "+-":
-			ts = s[1:]
-		else:
-			ts = s
-
-		if ts and all([_ in "0123456789" for _ in ts]):
+		ts = s[1:] if s[0] in "+-" else s
+		if ts and all(_ in "0123456789" for _ in ts):
 			return int(s)
 
 	return ret
@@ -2696,12 +2689,8 @@ def parseFloat(s, ret=0.0):
 	if not isinstance(s, str):
 		return float(s)
 	elif s:
-		if s[0] in "+-":
-			ts = s[1:]
-		else:
-			ts = s
-
-		if ts and ts.count(".") <= 1 and all([_ in ".0123456789" for _ in ts]):
+		ts = s[1:] if s[0] in "+-" else s
+		if ts and ts.count(".") <= 1 and all(_ in ".0123456789" for _ in ts):
 			return float(s)
 
 	return ret
@@ -2773,11 +2762,12 @@ def registerTag(tagName, widgetClass, override=True):
 	if not override and tagName.lower() in __tags:
 		return
 
-	attr = []
+	attr = [
+		fname[4:].lower()
+		for fname in dir(widgetClass)
+		if fname.startswith("_set")
+	]
 
-	for fname in dir(widgetClass):
-		if fname.startswith("_set"):
-			attr.append(fname[4:].lower())
 
 	__tags[tagName.lower()] = (widgetClass, attr)
 
@@ -2798,14 +2788,9 @@ def _buildTags(debug=False):
 	if __tags is not None:
 		return
 
-	if __tags is None:
-		__tags = {}
-
-	for cname in globals().keys():
+	for cname, cls in globals().items():
 		if cname.startswith("_"):
 			continue
-
-		cls = globals()[cname]
 
 		try:
 			if not issubclass(cls, Widget):
@@ -2816,8 +2801,10 @@ def _buildTags(debug=False):
 		registerTag(cls._parserTagName or cls._tagName or cls.__name__, cls, override=False)
 
 	if debug:
+		__tags = {}
+
 		for tag in sorted(__tags.keys()):
-			print("{}: {}".format(tag, ", ".join(sorted(__tags[tag][1]))))
+			print(f'{tag}: {", ".join(sorted(__tags[tag][1]))}')
 
 
 class HtmlAst(list):
@@ -2850,7 +2837,10 @@ def parseHTML(html, debug=False):
 		if __domParser is None:
 			__domParser = jseval("new DOMParser")
 
-		dom = __domParser.parseFromString("<!doctype html><body>" + str(txt), "text/html")
+		dom = __domParser.parseFromString(
+			f"<!doctype html><body>{str(txt)}", "text/html"
+		)
+
 		return dom.body.textContent
 
 	def scanWhite(l):
@@ -2885,7 +2875,7 @@ def parseHTML(html, debug=False):
 
 	# Prepare stack and input
 	stack.append((None, None, HtmlAst()))
-	html = [ch for ch in html]
+	html = list(html)
 
 	# Parse
 	while html:
@@ -2943,8 +2933,10 @@ def parseHTML(html, debug=False):
 				text += ch
 
 		# Append plain text (if not only whitespace)
-		if (text and ((len(text) == 1 and text in ["\t "])
-					  or not all([ch in " \t\r\n" for ch in text]))):
+		if text and (
+			(len(text) == 1 and text in ["\t "])
+			or any(ch not in " \t\r\n" for ch in text)
+		):
 			# print("text", text)
 			parent.append(convertEncodedText(text))
 
@@ -3002,7 +2994,7 @@ def parseHTML(html, debug=False):
 					if att not in elem[1]:
 						elem[1][att] = val
 					else:
-						elem[1][att] += " " + val
+						elem[1][att] += f" {val}"
 
 				continue
 
@@ -3092,11 +3084,20 @@ def fromHTML(html, appendTo=None, bindTo=None, debug=False, vars=None, **kwargs)
 					if getattr(bindTo, val, None):
 						print("Cannot assign name '{}' because it already exists in {}".format(val, bindTo))
 
-					elif not (any([val.startswith(x) for x in
-								   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "_"])
-							  and all(
-								[x in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789" + "_"
-								 for x in val[1:]])):
+					elif not (
+						any(
+							val.startswith(x)
+							for x in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+							+ "_"
+						)
+						and all(
+							x
+							in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+							+ "0123456789"
+							+ "_"
+							for x in val[1:]
+						)
+					):
 						print("Cannot assign name '{}' because it contains invalid characters".format(val))
 
 					else:

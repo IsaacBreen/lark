@@ -30,10 +30,10 @@ lalr_argparser.add_argument('grammar_file', type=FileType('r', encoding=encoding
 for flag in flags:
     if isinstance(flag, tuple):
         options.append(flag[1])
-        lalr_argparser.add_argument('-' + flag[0], '--' + flag[1], action='store_true')
+        lalr_argparser.add_argument(f'-{flag[0]}', f'--{flag[1]}', action='store_true')
     elif isinstance(flag, str):
         options.append(flag)
-        lalr_argparser.add_argument('--' + flag, action='store_true')
+        lalr_argparser.add_argument(f'--{flag}', action='store_true')
     else:
         raise NotImplementedError("flags must only contain strings or tuples of strings")
 
@@ -52,8 +52,8 @@ def showwarning_as_comment(message, category, filename, lineno, file=None, line=
     text = indent(text, '# ')
     if file is None:
         file = sys.stderr
-        if file is None:
-            return 
+    if file is None:
+        return
     try:
         file.write(text)
     except OSError:
